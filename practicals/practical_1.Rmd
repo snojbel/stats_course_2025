@@ -1,0 +1,62 @@
+---
+title: "Practical 1"
+author: "Izabel"
+date: "2025-01-22"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+I have chosen to do the analysis required for this practical in R, using the pwr package.  
+
+### Question 1. 
+*Correlation between X and Y. You suspect that a true corrleation is somewhere around r=0.3. How large sample size (i.e; how many X-Y pairs) do you need to reach a power of 80% for an alpha of 5%?*
+
+```{r cars, echo = FALSE}
+library(pwr)
+```
+
+```{r}
+pwr.r.test(n = NULL, r = 0.3, sig.level = 0.05, power = 0.8, alternative = "two.sided")
+
+```
+The results suggest that a sample size of 84 is desirable for this type of test, assuming the actual effect size is as high as 0.3. If the actual correlation is 0.28, the analysis suggests as many as ~97 samples are needed. So I would aim for a slightly conservative estimate off the effect size.
+
+### Question 2. 
+*You are reading a paper where the authors have taken samples from sites of chemical contamination of lead (Pb) in rivers. They then correlate the strength of contamination with a measure of species diversity of aquatic macroinvertebrates across 14 sites. They find no significant correlation (P > 0.05) and conclude that lead contamination has no effect on the macroinvertebrate fauna. What do you think about this conslusion and what is the power to detect a weak effect (r=0.1) of lead contamination in this study?*
+
+This study has a sample size of 14 and using the effect size of 0.1 we can calculate the expected power of a 0.05 significant test:
+
+```{r}
+pwr.r.test(n = 14, r = 0.1, sig.level = 0.05, power = NULL, alternative = "two.sided")
+```
+This suggests a power of ~6%, it is very unlikely that they would actually detect anything. So their results is most likely a type-II error. 
+
+### Question 3. 
+*You wish to test for a difference between two groups with a t-test. Preliminary data suggest that one mean is around 4 and the other is close to 5, and the standard deviation in both groups is about 2. You set alpha to 5%. How many observations do you need to do in each group (the same sample size in both groups; N1=N2) to reach a power of 80%?*
+
+```{r}
+d <- (5 - 4)/2    # Cohen's d, the effect size. Difference between the means divided by the pooled standard deviation
+
+power.t.test(n = NULL, d = d, sig.level = 0.05, power = 0.8, type = "two.sample", alternative = "two.sided")
+
+
+
+```
+This suggests that I would need atleast 64 observations from each group to reach a power of 80%.
+
+### Question 4. 
+*You are planning an experiment where you grow plants in three soil types. A pilot study suggests that plant biomass will be about 23, 25 and 29 in your three treatment groups. Standard deviation seems to be about 6 in all three groups. You will analyse your results with a one-way analysis of variance (ANOVA), but need to know how many replicates you need: what should the sample size be in each group (use the same sample size in all groups; N1=N2=N3) to get an approximate power of 80%?*
+
+```{r}
+# f is the standard deviation of standardized means
+pop_mean <- (23 + 25 + 29) / 3
+f <- sqrt(sum(c((23 - pop_mean)^2, (25 - pop_mean)^2, (29 - pop_mean)^2))/3)/6
+pwr.anova.test(k = 3, n = NULL, f = f, sig.level = 0.05, power = 0.8)
+```
+This suggests that I should plan to get at least 20 samples in each group. But like mentioned previously, as all calculations of effect size are estimates and best guesses of actual differences I would either aim for more samples or choose somewhat conservative estimates when predicting effect size. 

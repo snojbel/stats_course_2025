@@ -56,3 +56,39 @@ posterior_pred_dist <- rbinom(1e4, 10, prob = samples)
 simplehist(posterior_pred_dist, xlab = "Predicted number of prize claimers")
 
 
+# Solutions from McElreath
+
+compute_posterior <- function(Y, N, grid){
+  ways <- sapply(grid, function(q) q^Y * (1 - q)^N)
+  post <- ways/sum(ways)
+  data.frame(grid, ways, post = round(post, 3))
+}
+
+# Posterior probability for not claiming prize
+posterior <- compute_posterior(171-111, 111, seq(0, 1, length.out = 100))
+plot(posterior$grid, posterior$post, type = "l")
+
+# or
+
+posterior <- dbeta(seq(0, 1, length.out = 100), 171-111+1, 111+1)   
+plot(seq(1, 0, length.out = 100), posterior, type = "l")
+
+# Find cheaters
+
+compute_posterior <- function(Y, N, grid){
+  ways <- sapply(grid, function(q) 
+    {p <- q + (1 - q)*0.5; return(p^Y * (1 - p)^N)}) # p is proportion who claim prize
+  post <- ways/sum(ways)
+  data.frame(grid, ways, post = round(post, 3))
+}
+
+
+posterior2 <- compute_posterior(111, 171-111, seq(0, 1, len = 100))
+plot(posterior2$grid, posterior2$post, type = "l")
+
+
+p_samples <- rbeta(1e4, 111, 171-111)
+# next ten rolls
+Y_sim <- rbinom(1e4, size = 10, p = p_samples)
+
+plot(table(Y_sim))
