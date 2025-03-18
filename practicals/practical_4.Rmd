@@ -1,0 +1,147 @@
+---
+title: "Practical IV"
+author: "Izabel"
+date: "2025-02-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Question 1 : Law, Bootstrapping
+
+#### A) Generate bootstrap samples from the data 
+
+
+```{r cars}
+data <- read.csv("Law.csv", sep = ";")
+
+
+corr_boot <- function(data, n_samples){
+                  sample_correlations <- c()
+                  for(i in 1:n_samples){
+                    rows <- sample(c(1:nrow(data)), size = nrow(data), replace = T)
+                    boot_sample <- data[rows,]
+                    sample_correlations[i] <- 
+                      cor.test(boot_sample[, 1], boot_sample[, 2])$estimate
+                  }
+                  return(sample_correlations)
+                }
+
+n_samples <- 10000
+sample_correlations <- corr_boot(data = data, n_samples = n_samples)
+head(sample_correlations)
+
+```
+
+#### B) Mean bootstrap correlation
+
+```{r}
+mu <- mean(sample_correlations)
+mu
+```
+
+#### C) Confidence intervals
+
+```{r}
+# hist(sample_correlations) Since they're bounded at 1 its not very symmetric
+
+ordered_sample <- sort(sample_correlations)
+lower <- ordered_sample[250]
+upper <- ordered_sample[9750]
+
+# hist(sample_correlations)
+# abline(v = lower, lty = 2)
+# abline(v = upper, lty = 2)
+
+print(c(lower, upper))
+
+```
+#### C) Bias-corrected Confidence interval
+
+```{r}
+
+percentage_below <- length(which(ordered_sample < mu))/n_samples
+z <- qnorm(percentage_below)
+
+upper_perc <- pnorm(2*z + 1.96)
+lower_perc <- pnorm(2*z - 1.96)
+
+lower <- ordered_sample[as.integer(lower_perc*n_samples)]
+upper <- ordered_sample[as.integer(upper_perc*n_samples)]
+
+# hist(sample_correlations)
+# abline(v = lower, lty = 2)
+# abline(v = upper, lty = 2)
+
+print(c(lower, upper))
+
+```
+
+### Question 2 : Population, Randomization
+
+
+```{r}
+data <- read.csv("Populations.csv", sep = ";", stringsAsFactors = TRUE)
+
+m2.1 <- aov(Size ~ Population, data = data)
+anova(m2.1)
+# plot(m2.1)  # Residuals definitely not normal 
+# plot(Size ~ Population, data = data)
+
+levels <- as.factor(unique(data$Population))
+balance <- c()
+for(i in 1:length(levels)){
+  balance[i] <- nrow(data[data$Population == levels[i], ])
+}
+# plot(sort(balance))
+range(balance)  # VERY unbalanced
+
+```
+
+Data is highly unbalanced and residuals are not normal. So lets do some randomization!
+
+```{r}
+
+
+p_value <- anova(m2.1)$"Pr(>F)"[1]
+f_value <- anova(m2.1)$"F value"[1]
+
+random_data <- function(data, n_samples){
+  randomized_data <- data.frame(
+    Population = data[,1],
+    Size = 0)
+  for(i in 1:n_samples){
+    randomization <- sample(1:nrow(data), size = nrow(data))
+    randomized_data[,i+1] <-  data[randomization,2]}
+  results <- data.frame(F.stat = 0, 
+                        p = 0)
+  for(s in 1:n_samples){
+    m <- aov(randomized_data[,s+1] ~ randomized_data[,1])
+    results[s, 1] <- anova(m)$"F value"[1] 
+    results[s, 2] <- anova(m)$"Pr(>F)"[1]
+  }
+  return(results)
+}
+
+
+randomization_results <- random_data(data = data, n_samples = n_samples)
+head(randomization_results)
+
+proportion_p <- length(which(randomization_results$p <= p_value))/n_samples
+proportion_f <- length(which(randomization_results$F.stat >= f_value))/n_samples
+
+# hist(randomization_results$F.stat)
+# hist(randomization_results$p)
+
+print(c(p_value, proportion_f))
+
+
+```
+
+Very similar p values, suggests that we can trust the result of our analysis. 
+
+
+
+

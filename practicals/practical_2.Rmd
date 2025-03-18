@@ -1,0 +1,227 @@
+---
+title: "Practical 2"
+author: "Izabel"
+date: "2025-02-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+## What are the relative roles of mileage and year of make in determining the price of a used Volvo?
+
+I use multiple linear regression with mileage and year as dependent variables to evaluate their association with price. In order to understand their relative importance I will first standardize the values so they can be more easily compared. 
+```{r cars}
+car_data <- read.csv("Volvo.csv", sep = ";")
+#car_data <- car_data[-47,]
+car_data$Price.std <- (car_data$Price - mean(car_data$Price)) / sd(car_data$Price)
+car_data$Mileage.std <- (car_data$Mileage - mean(car_data$Mileage)) / sd(car_data$Mileage)
+car_data$Year.std <- (car_data$Year - mean(car_data$Year)) / sd(car_data$Year)
+
+
+# plot(car_data$Mileage.std, car_data$Price)
+
+# plot(car_data$Mileage.std, car_data$Year.std)
+# cor.test(car_data$Mileage.std, car_data$Year.std)
+
+
+m1.1 <- lm(Price.std ~ Mileage.std + Year.std, data = car_data)
+
+summary(m1.1)
+
+
+# plot(Price ~ Year, data = car_data)
+# plot(Price ~ Mileage, data = car_data)
+# plot(m1.1)                             # To inspect if assumptions are met or not. 
+```
+Both mileage and year of model has a significant association with price. Mileage being negatively correlated and Year positively correlated. Year had a relativly stronger effect on price compared to mileage. Each standard deviation increase in year had a mean increase of ~ 0.6 standard deviations in price (sd(Year) = 1.65 years) (sd(price) = 9356.985 kr), whilst each standard deviation increase in mileage resulted in a mean decrease of ~ 0.3 standard deviations in price (sd(Mileage) = 7023).
+
+
+The main concerns with this data is that the residuals variance seems to increase with Year of make. It can be seen very clearly that the range of price of cars made 1991 is much larger than the range of cars made 1985. However the visual inspection of residual plots lead me to assume the test is robust enough to withstand it. Especially considering the large amount of data points. 
+
+Another concern with multiple linear regressions is collinearity, but there is no significant correlation between the two standardized predictor variables.
+
+There is one data point with considerable leverage. It has an mileage of 4 standard deviations away from the mean and is therefore very influential. Removing it from the model results in similar conclusions but with slightly altered slopes in the regressions. 
+
+## You want to know if the number of moss species differ in different forest types in this region, and if so how.
+
+To analyse this I will use an anova.
+
+```{r pressure, echo=FALSE}
+forest_data <- read.csv("Forest.csv", sep = ";")
+forest_data$Forest.type <- as.factor(forest_data$Forest.type)
+
+# To check if data is balanced
+length(forest_data$No.species[forest_data$Forest.type=="Spruce"])
+length(forest_data$No.species[forest_data$Forest.type=="Deciduous"])
+length(forest_data$No.species[forest_data$Forest.type=="Pine"])
+
+
+# plot(rep(1, 5), forest_data$No.species[forest_data$Forest.type=="Spruce"], xlim = c(0, 4), 
+     # ylim = c(40, 80), xlab = "Forest Type", ylab = "Number of Moss species", col = "cyan4", pch = 16)
+# points(rep(2, 5), forest_data$No.species[forest_data$Forest.type=="Deciduous"], col = "green3", pch = 16)
+# points(rep(3, 4), forest_data$No.species[forest_data$Forest.type=="Pine"], col = "green4", pch = 16)
+
+
+
+m2.1 <- aov(No.species ~ Forest.type, data = forest_data)
+summary(m2.1)
+TukeyHSD(m2.1)
+
+# plot(m2.1)                                            # Checking normality of residuals
+# boxplot(No.species ~ Forest.type, data = forest_data) # Checking homoscedasticity
+
+```
+The first tests shows that we can reject the null hypothesis that all three groups are the same. I then perform a post-hoc test to see how the groups differ. This reveals that Deciduous forest is significantly different from the other two, having more moss species.
+When the groups are compared in a box plot this also becomes evident. 
+
+The data is unbalanced, with a missing data point within the pine forest type. However when testing null hypothesis with fixed effects the main worry would be when the p-value is close to the critical limit, as we would not have as much confidence in it (Quinn and Keough, 2002). These P-values are far below the critical value, and since the residuals are fairly normal and homoscedastic I am confident in believing the results of the test. 
+
+While no difference is detected between spruce and pine if one is interested in finding this more definitively, a lot more samples would need to be collected, as any difference that might 
+exist is much smaller. Less effect size. 
+
+## You are interested in the effects of food type and temperature on the expression pattern of a group of genes in Drosophila melanogaster.
+
+Will be analyzed using a two-way anova. Both factors are presumably fixed effects. 
+
+```{r}
+gene_data <- read.csv("Gene.csv", sep = ";")
+gene_data$Food <- as.factor(gene_data$Food)
+gene_data$Temperature <- as.factor(gene_data$Temperature)
+
+m3.1 <- aov(Gene.expression ~ Food * Temperature, data = gene_data)
+
+
+# plot(m3.1)               # To check homoscedasticity and residuals normality. 
+summary(m3.1)
+# Since ther is no interaction I remove it and do a post hoc test to see which groups differ
+m3.2 <- aov(Gene.expression ~ Food + Temperature, data = gene_data)
+TukeyHSD(m3.2)
+
+# plot(Gene.expression ~ Food, data = gene_data)
+
+```
+
+Test show that only food has a significant impact on the gene expression. The post hoc test show that group 1 and 2 are significantly different from 3, and 4. Visual inspection of the data confirms this. No difference is detected between 1 and 2, and 3 and 4. 
+
+Inspecting the data shows that it is not balanced. Which means the test will be less robust to violations of homoscedasticity. This can be hard to judge because of the low sample sizes in some groups. Low sample sizes makes any measure of variance more unreliable. Residuals associated with high food and temp have lower variance compared to the rest of the data set. The combination of unbalanced groups and this makes the results of these test tentative. 
+
+
+
+
+##You have treated moose with three different types of drugs, and want to know what the effects are of this treatment on gut parasite prevalence.
+
+This will be analysed with a nested anova with a random effect. 
+
+```{r}
+library(lmerTest)                             # allows for random effects in anova
+moose_data <- read.csv("Drug.csv", sep = ";")
+moose_data$Family <- as.factor(moose_data$Family)
+moose_data$Drug.treatment <- as.factor(moose_data$Drug.treatment)
+
+m4.1 <- lmer(Parasite.prevalence ~ Drug.treatment + (1 | Family), data = moose_data)
+summary(m4.1)
+anova(m4.1, type = "3")
+
+
+# plot(Parasite.prevalence ~ Drug.treatment, data = moose_data)
+
+# shapiro.test(residuals(m4.1))
+# moose_data$Parasite.prevalence.log <- log(moose_data$Parasite.prevalence)
+# plot(Parasite.prevalence.log ~ Drug.treatment, data = moose_data)
+# m4.2 <- lmer(Parasite.prevalence.log ~ Drug.treatment + (1 | Family), data = moose_data)
+# anova(m4.2, type = "3")
+# plot(m4.1)          # residual check
+
+
+```
+
+
+If family is treated like a random effect my results show no significant relationship between parasite prevalence and drug treatment. Although it is nearly significant and visual inspection of the data suggest there might be a difference that we cannot detect with the current data. Therefore I believe this might warrant some extra data collection if possible. As there is currently not very much to go on and the power of the test is very low.
+
+
+
+
+##You are interested in whether the changes in population size in a plant species over time during 1983-1990 were different in populations treated with different types of fertilizers. To this end, you have gathered population sensus data for 57 populations from 1983, 1986 and 1990.
+
+This will be tested using a repeated measures anova with one within subject factor and one between subject factor 
+
+```{r}
+library(tidyr)
+library(ggpubr)
+pop_data <- read.csv("Population.csv", sep = ";", stringsAsFactors = T)
+
+
+pop_data_long <- pivot_longer(pop_data, cols = c("Pop_1983", "Pop_1986", "Pop_1990"))
+pop_data_long$name <- as.factor(pop_data_long$name)
+colnames(pop_data_long) <- c("ID", "Fertilizer", "Time", "Growth")
+head(pop_data_long)
+# Checking out data and looking for outliers and normality
+
+#ggboxplot(
+#  pop_data_long, x = "Time", y = "Growth",
+#  color = "Fertilizer", palette = "jco"
+#  )
+
+# ggqqplot(pop_data_long, "Growth", ggtheme = theme_bw()) +
+#   facet_grid(Time ~ Fertilizer, labeller = "label_both")
+
+pop_data_long$Growth.log <- log(pop_data_long$Growth)
+
+# ggboxplot(
+#   pop_data_long, x = "Time", y = "Growth.log",
+#   color = "Fertilizer", palette = "jco"
+#   )
+
+# ggqqplot(pop_data_long, "Growth.log", ggtheme = theme_bw()) +
+  # facet_grid(Time ~ Fertilizer, labeller = "label_both")
+
+# Logging the response variable made it much more normal and reduced the number of outliers. 
+
+m5.1 <- aov(Growth.log~Time + Error(ID/Time), data=pop_data_long)   # Checks whether   there is any difference between the three times.
+# means you have a random effect from Population but then fixed effect from time with time nested within population levels. 
+# summary(m5.1)
+# Add fertilizer as effect
+
+m5.2 <- aov(Growth.log~Fertilizer + Error(ID/Fertilizer), data=pop_data_long)
+#summary(m5.2)
+
+m5.3 <- aov(Growth.log~Time * Fertilizer + Error(ID/Time*Fertilizer), data=pop_data_long)
+summary(m5.3)
+
+
+
+
+```
+The data is balanced but it was neither normal nor free of outliers. Logging the response variable did reduce the problems. The evidence was not enough to show that fertilizer had a significant effect on growth. Time did have a significant effect and the interaction between time and fertilizer was also significant. 
+
+## You have performed an orthogonally crossed experiment on the effects of two factors on seed set in a plant.
+
+I will use a two way anova with a covariet to analyse this data, a.k.a. an ancova. 
+
+```{r}
+seed_data <- read.csv("Seed set.csv", sep = ";", stringsAsFactors = T)
+seed_data$Factor.A <- as.factor(seed_data$Factor.A)
+seed_data$Factor.B <- as.factor(seed_data$Factor.B)
+
+
+m6.1 <- aov(Seed.set ~ (Factor.A + Factor.B )* Leaf.mass, data = seed_data)
+summary(m6.1)
+
+
+# ggboxplot(
+#   seed_data, x = "Factor.A", y = "Seed.set")
+# ggboxplot(
+#   seed_data, x = "Factor.B", y = "Seed.set")
+# plot(Seed.set ~ Leaf.mass, data = seed_data)
+
+# plot(m6.1)                     # Looking for normality and homoscedasticity. 
+
+```
+One important assumptions of the ancova is the homogeneity of slopes, i.e. there can be no interaction between the covariet (leaf mass) and the two independent variables. There is no indication of this. The residuals seem approximately normal and homoscedastic. 
+
+Factor A and leaf mass have a significant effect on seed set. With Factor A 2 having a smaller seed set and leaf mass being positively associated with seed set. 
+
+
+

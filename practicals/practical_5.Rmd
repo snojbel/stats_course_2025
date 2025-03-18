@@ -1,0 +1,153 @@
+---
+title: "Practical V"
+author: "Izabel"
+date: "2025-03-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning= FALSE, message = FALSE)
+```
+
+### Question 1: Rats and pathogen
+
+The data will be analysed using a manova.
+
+```{r}
+
+data <- read.csv("Rats.csv", sep = ";")
+data$SEX <- as.factor(data$SEX)
+data$DRUG <- as.factor(data$DRUG)
+dependent_var <- cbind(data$HEALTH.1., data$HEALTH.2.)
+
+m1.1 <- manova(dependent_var ~ SEX * DRUG, data = data)
+
+
+# Checking assumptions (1) Normality of data/residuals, (2) Homogeneity of variance, (3) No multicollinearity. 
+# Normality
+# plot(m1.1$residuals)
+library(mvnormtest)
+# mshapiro.test(t(m1.1$residuals[,1])) # Residuals normal
+# mshapiro.test(t(m1.1$residuals[,2]))
+
+
+# Homogeneity of variance
+library(rstatix)
+# box_m(data[, c(-1,-2)], data[, 1]) # Homogeneous 
+# box_m(data[, c(-1,-2)], data[, 2]) # Homogeneous
+
+# Collinearity
+
+# cor.test(data$HEALTH.1., data$HEALTH.2.)  # Some collinearity but not too much and not to little. 
+
+#summary(m1.1)
+summary.aov(m1.1)
+#anova(m1.1)
+
+```
+
+Drugs seem to have a significant effect on the health variables, specifically health variable 1. The assumptions of the test seem to hold with normal residuals and homogeneous variances. The two dependent variables are correlated but just the right amount. 
+
+### Questions 2: Countries clustering.  
+
+Its important to standardize with this kind of data since there are many different units and different scales in the data. 
+
+```{r}
+data <- read.csv("Countries.csv", sep = ";")
+rownames(data) <- data[,1]
+data <- data[,-1]
+
+data <- scale(data, center = TRUE)
+
+
+dist <- dist(data , diag=TRUE)                             # Euclidean distances
+clusters <- hclust(dist, method = "ward.D2")               # Clustering 
+  
+plot(clusters)
+
+
+
+```
+
+When studying the dendrogram three main clusters that are quite separated from each other become apparent. It's easy to find pattern in this dendrogram as well. For example, Denmark, Sweden, Switzerland, and Canada are all relatively rich countries with socialist or progressive views. But I would be carefully interpreting this kind of data just from the dendrogram as it's very easy to impose your own viewpoints and bias how you present it.  
+
+### Question 3: Birds Ordination
+
+
+```{r}
+data <- read.csv("Birds.csv", sep = ";")
+
+data[, c(3:104)] <- scale(data[, c(3:104)], center = FALSE)  # So that very common species aren't given more weight, center false so that 0s stay 0 
+rownames(data) <- data[,1]
+data <- data[,-1]
+colnames(data) <- c("Habitat", paste0("Species ", c(1:102)))
+data$Habitat <- as.factor(data$Habitat)
+
+library(factoextra)
+library(vegan)
+
+pca <- prcomp(data[,-1], scale = FALSE)
+# fviz_eig(pca)  # First two components explain about 30 % of the variation.
+
+pca_scores <- as.data.frame(scores(pca))
+Habitat <- data[,1]
+pca_scores$Habitat <- Habitat
+
+ggplot(data = pca_scores, aes(x = PC1, y = PC2, color = Habitat)) +
+  geom_point() +
+  stat_ellipse(geom = "polygon", 
+               aes(fill = Habitat), alpha = 0.25) 
+
+```
+
+While some communties seem to be separated based upon habitat, there is definitely a lot of overlap. Consistent with only 30 % of the variation being explained by the first two components. There is also some "horseshoe" effects. The only habitat that seems clearly distinct from the others is River Red Gum.
+
+#### Now for an NMDS as well: 
+
+```{r, results = FALSE}
+
+library(vegan)
+d<- read.csv("Birds.csv", sep = ";")
+rownames(d) <- d[,1]
+d <- d[,c(-1, -2)]
+colnames(d) <- c(paste0("Species ", c(1:102)))
+NMDS <- metaMDS(d, k=2, scale = FALSE)  
+  
+
+# stressplot(NMDS)  # Stress looks okay
+
+ 
+# plot(NMDS)  # Red crosses = species, open circles = sites
+library(viridis)
+
+Colors <- mako(length(unique(Habitat)))
+color_var <- Colors[as.numeric(Habitat)]
+
+# op <- ordiplot(NMDS, display="species", type="none")
+# points(op, "species", pch=16, col=color_var)     # No clear distinction between different 
+
+
+library(ggplot2)
+
+data_scores <- as.data.frame(scores(NMDS)$sites)
+data_scores$Habitat <- Habitat
+
+ggplot(data = data_scores, aes(x = NMDS1, y = NMDS2, color = Habitat)) +
+  geom_point() +
+  stat_ellipse(geom = "polygon", 
+               aes(fill = Habitat), alpha = 0.25) +
+  annotate("text", x = -1.2, y=0.8, label = paste0("Stress = ", round(NMDS$stress, 3)))
+
+```
+
+The NMDS plot also does not make it obvious that their is any clear grouping of species depending on habitat type. But their is some grouping of different sites, with River red gum clearly being separated from the rest. 
+
+Both the PCA and the NMDS indicate that there isn't much separation between the different communities in the sites except for River Red Gum, which was distinct in both. 
+
+
+
+
+
+
+
+

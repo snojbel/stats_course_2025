@@ -1,0 +1,138 @@
+---
+title: "Practical III"
+author: "Izabel"
+date: "2025-02-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+## Practical III
+
+### Question 1:  Flowers
+
+Assess the independent effects of reproductive effort (number of flowers) and root volume (a measure of resources uptake capability) on mortality!
+
+This will my analyzed using logistic regression. A binomial error distribution and a logit link function. 
+
+```{r}
+flower_data <- read.csv("Flowers.csv", sep = ";")
+# head(flower_data)
+
+flower_data$Flowers_std <- with(flower_data, (Flowers - mean(Flowers)) / sd(Flowers))
+flower_data$Root_volume_std <- with(flower_data, (Root_volume - mean(Root_volume)) / sd(Root_volume))
+flower_data$Dead_or_Alive <- as.factor(flower_data$Dead_or_Alive)
+# plot(Flowers_std ~ Root_volume_std, data = flower_data)
+# cor.test(flower_data$Flowers, flower_data$Root_volume)
+
+
+m1.1 <- glm(Dead_or_Alive ~ Flowers_std * Root_volume_std, family = binomial(link = 'logit'), data = flower_data)
+summary(m1.1)
+# plot(m1.1)  # Checking leverage 
+
+flower_data.red <- flower_data[-59,]   # Removal of high leverage point
+
+m1.2 <- glm(Dead_or_Alive ~ Flowers_std * Root_volume_std, family = binomial(link = 'logit'), data = flower_data.red)
+summary(m1.2)
+# plot(m1.2)
+
+
+# ggplot(data = flower_data.red, aes(Root_volume_std, Dead_or_Alive, col = Flowers)) +
+#    geom_point()
+
+
+```
+
+Numbers of flowers and Root volume is highly correlated so including both in the model could be problematic and cause any estimate of the main effects to be uncertain. Could be a reason for the high standard error estimated by model. 
+
+The model containing flowers, root volume and their interaction show that flowers, root volume and the interaction are significantly associated with the flowers survival. 
+There was point with significant leverage, and a model was run with it removed. The effect is the same with a very slight increase in the effect size. 
+
+It can be concluded that high number flowers and smaller root volume seem to be connected to survival, but since there is a high correlation between the independent variables the results might not be trustworthy. 
+
+### Question 2: Larvae
+
+Here the response is the proportion of parasitized larvae and the independent variables are density and habitat. So a binomial error distribution with a logit link function will be used.  
+
+```{r}
+larvae_data <- read.csv("larvae.csv", sep = ";")
+larvae_data$Habitat <- as.factor(larvae_data$Habitat)
+
+larvae_data$proportion_para <- with(larvae_data, Parasitized.larave/Total.number.of.larvae)
+larvae_data$Density.std <- with(larvae_data, (Density - mean(Density)) / sd(Density))
+
+
+m2.1 <- glm(cbind(larvae_data$Parasitized.larave, larvae_data$Total.number.of.larvae - larvae_data$Parasitized.larave) ~ Density.std * Habitat, family = binomial(link = "logit"), data = larvae_data)
+
+library(performance)
+
+
+# check_overdispersion(m2.1) # No overdispersion detected
+# summary(m2.1)
+
+# anova(m2.1)
+
+m2.2 <- glm(cbind(larvae_data$Parasitized.larave, larvae_data$Total.number.of.larvae - larvae_data$Parasitized.larave) ~ Habitat * Density.std, family = binomial(link = "logit"), data = larvae_data)
+
+# summary(m2.2)
+
+# anova(m2.2)
+
+m2.3 <- glm(cbind(larvae_data$Parasitized.larave, larvae_data$Total.number.of.larvae - larvae_data$Parasitized.larave) ~ Habitat * Density.std, family = quasibinomial(link = "logit"), data = larvae_data)
+
+summary(m2.2)
+
+anova(m2.2)
+
+
+#library(ggplot2)
+
+#ggplot(data = larvae_data, aes(Density, proportion_para, col = Habitat))+
+#  geom_point()
+
+
+
+```
+
+The data in this set is unbalanced, meaning the order we enter our terms in the model matter. Since a type 1 sums of squares is used in the analysis of deviance. If the effect of habitat is measured in the presence of density, it does not significantly reduce the amount of deviance to become significant. However if it is analysed as the only main effect it does explain enough deviance to be significant. Either way, the interaction is significant, making interpretations of the main effects harder.
+
+If I was in charge of this experiment I would report both ways of running the model. I would also consider why I am running this experiment and what real world issue it relates to, because this might change which way of running the model would make the most sense. I would also try and redo the experiment at a slightly larger scale, making it less sensitive to this imbalance and lending it more power. 
+
+There is no sign that the data is overdispersed, but there is signs that is is underdispersed. Therefore I also ran the model using a quasibinomial distribution, but the results were very similar.  
+
+
+### Question 3: Slugs
+
+The response variable here is counts and I will therefore be using a poisson error distribution and a log link function. 
+
+
+```{r}
+slug_data <- read.csv("slugs.csv", sep = ";")
+slug_data$Treatment <- as.factor(slug_data$Treatment)
+
+# plot(Slugs ~ Treatment, data = slug_data)
+
+m3.1 <- glm(Slugs ~ Treatment, family = poisson(link = "log"), data = slug_data)
+
+
+check_overdispersion(m3.1) # dispersion detected
+# Checks residual deviance vs 1.5 times degree of freedom. 
+
+
+m3.2 <- glm(Slugs ~ Treatment, family = quasipoisson(link = "log"), data = slug_data)
+
+# which(slug_data$Slugs == 0 & slug_data$Treatment==2)
+summary(m3.2)
+anova(m3.2)
+
+
+```
+
+
+
+This data is overdispersed so a quasipoisson distribution is used which allows overdispersion. But the results are still not significant. 
+
+
+
